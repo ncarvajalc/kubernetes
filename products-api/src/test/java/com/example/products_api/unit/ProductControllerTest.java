@@ -1,4 +1,4 @@
-package com.example.products_api;
+package com.example.products_api.unit;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -46,7 +46,7 @@ class ProductControllerTest {
         ProductEntity product = new ProductEntity("Laptop", "Gaming laptop", 1500.0);
         ProductDTO productDTO = new ProductDTO(1L, "Laptop", "Gaming laptop", 1500.0);
 
-        when(productService.getProducts(0, 10, "name", "asc"))
+        when(productService.getProducts(1, 10, "name", "asc"))
                 .thenReturn(new PagedResponse<>(List.of(product), 1, 1));
         when(modelMapper.map(any(ProductEntity.class), eq(ProductDTO.class))).thenReturn(productDTO);
 
