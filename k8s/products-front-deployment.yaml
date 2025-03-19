@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products-front
+  template:
+    metadata:
+      labels:
+        app: products-front
+    spec:
+      containers:
+        - name: products-front
+          image: ${DOCKER_REGISTRY}/products-front:${VERSION}
+          imagePullPolicy: Never # TODO: REMOVE THIS LINE
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: http://products-api:8080/api
