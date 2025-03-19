@@ -181,12 +181,13 @@ export default function ProductsPage() {
     return (
       <Pagination>
         <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious
-              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              isActive={currentPage !== 1}
-            />
-          </PaginationItem>
+          {currentPage > 1 && (
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => handlePageChange(currentPage - 1)}
+              />
+            </PaginationItem>
+          )}
 
           {pageNumbers.map((pageNumber) => (
             <PaginationItem key={pageNumber}>
@@ -199,14 +200,13 @@ export default function ProductsPage() {
             </PaginationItem>
           ))}
 
-          <PaginationItem>
-            <PaginationNext
-              onClick={() =>
-                handlePageChange(Math.min(totalPages, currentPage + 1))
-              }
-              isActive={!(currentPage === totalPages || totalPages === 0)}
-            />
-          </PaginationItem>
+          {currentPage < totalPages && totalPages > 0 && (
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => handlePageChange(currentPage + 1)}
+              />
+            </PaginationItem>
+          )}
         </PaginationContent>
       </Pagination>
     );
