@@ -2,20 +2,11 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: products-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-    - host: products.example.com # Replace with your domain
+    - host: products.example.com
       http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: products-front
-                port:
-                  number: 80
           - path: /api
             pathType: Prefix
             backend:
@@ -23,3 +14,10 @@ spec:
                 name: products-api
                 port:
                   number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: products-front
+                port:
+                  number: 80

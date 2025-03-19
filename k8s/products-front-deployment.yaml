@@ -19,6 +19,3 @@ spec:
           image: ${DOCKER_REGISTRY}/products-front:${VERSION}
           ports:
             - containerPort: 3000
-          env:
-            - name: NEXT_PUBLIC_API_URL
-              value: http://products-api:8080/api
