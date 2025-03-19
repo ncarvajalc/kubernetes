@@ -12,10 +12,11 @@ spec:
       labels:
         app: products-api
     spec:
+      imagePullSecrets:
+        - name: github-registry
       containers:
         - name: products-api
           image: ${DOCKER_REGISTRY}/products-api:${VERSION}
-          imagePullPolicy: Never # TODO: REMOVE THIS LINE
           ports:
             - containerPort: 8080
           env:

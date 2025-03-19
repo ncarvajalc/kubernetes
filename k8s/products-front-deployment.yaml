@@ -12,10 +12,11 @@ spec:
       labels:
         app: products-front
     spec:
+      imagePullSecrets:
+        - name: github-registry
       containers:
         - name: products-front
           image: ${DOCKER_REGISTRY}/products-front:${VERSION}
-          imagePullPolicy: Never # TODO: REMOVE THIS LINE
           ports:
             - containerPort: 3000
           env:

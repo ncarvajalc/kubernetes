@@ -2,24 +2,16 @@ pipeline {
     agent any
     
     environment {
+        GITHUB_REGISTRY = 'ghcr.io/ncarvajalc' 
         VERSION = "${env.BUILD_NUMBER}"
-        // No registry for local testing
-        DOCKER_REGISTRY = ''
+        GITHUB_TOKEN = credentials('github-token')
+        DB = credentials('db-credentials')
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-        
-        stage('Configure Docker for Minikube') {
-            steps {
-                script {
-                    // Connect to Minikube's Docker daemon
-                    sh "eval \$(minikube docker-env)"
-                }
             }
         }
         
@@ -49,45 +41,62 @@ pipeline {
             }
         }
         
-        stage('Build Docker Images') {
+        stage('Build and Push Docker Images') {
             steps {
                 script {
-                    // Build API image
+                    // Login to GitHub Container Registry
+                    sh "echo ${GITHUB_TOKEN_PSW} | docker login ghcr.io -u ${GITHUB_TOKEN_USR} --password-stdin"
+                    
+                    // Build and push API image
                     dir('products-api') {
-                        sh "docker build -t products-api:${VERSION} ."
+                        sh "docker build -t ${GITHUB_REGISTRY}/products-api:${VERSION} ."
+                        sh "docker push ${GITHUB_REGISTRY}/products-api:${VERSION}"
                     }
                     
-                    // Build Frontend image
+                    // Build and push Frontend image
                     dir('products-front') {
-                        sh "docker build -t products-front:${VERSION} ."
+                        sh "docker build -t ${GITHUB_REGISTRY}/products-front:${VERSION} ."
+                        sh "docker push ${GITHUB_REGISTRY}/products-front:${VERSION}"
                     }
                 }
             }
         }
         
-        stage('Deploy to Minikube') {
+        stage('Deploy to Kubernetes') {
             steps {
                 script {
                     // Create namespace if it doesn't exist
                     sh "kubectl create namespace products --dry-run=client -o yaml | kubectl apply -f -"
                     
-                    // Create or update the database secret
+                    // Create secret for GitHub Container Registry
+                    sh """
+                    kubectl create secret docker-registry github-registry \
+                      --docker-server=ghcr.io \
+                      --docker-username=${GITHUB_TOKEN_USR} \
+                      --docker-password=${GITHUB_TOKEN_PSW} \
+                      --namespace=products \
+                      --dry-run=client -o yaml | kubectl apply -f -
+                    """
+
+                    // Create secret for database credentials
                     sh """
                     kubectl create secret generic db-credentials \
-                      --from-literal=username=postgres \
-                      --from-literal=password=postgres \
-                      -n products --dry-run=client -o yaml | kubectl apply -f -
+                      --from-literal=username=${DB_USR} \
+                      --from-literal=password=${DB_PSW} \
+                      --namespace=products \
+                      --dry-run=client -o yaml | kubectl apply -f -
                     """
+                    
                     
                     // Apply Kubernetes manifests
                     sh "kubectl apply -f k8s/postgres-pvc.yaml -n products"
-                    sh "kubectl apply -f k8s/postgres-deployment.yaml -n products"
+                    sh "kubectl apply -f k8s/postgres-deployment.yaml -n products" 
                     sh "kubectl apply -f k8s/postgres-service.yaml -n products"
                     
-                    // Update deployment files with correct image names and apply
+                    // Apply API and Frontend manifests with variable substitution
                     sh """
                     cat k8s/products-api-deployment.yaml | \
-                    sed 's|\${DOCKER_REGISTRY}/products-api:\${VERSION}|products-api:${VERSION}|g' | \
+                    sed 's|\${DOCKER_REGISTRY}|${GITHUB_REGISTRY}|g; s|\${VERSION}|${VERSION}|g' | \
                     kubectl apply -f - -n products
                     """
                     
@@ -95,13 +104,11 @@ pipeline {
                     
                     sh """
                     cat k8s/products-front-deployment.yaml | \
-                    sed 's|\${DOCKER_REGISTRY}/products-front:\${VERSION}|products-front:${VERSION}|g' | \
+                    sed 's|\${DOCKER_REGISTRY}|${GITHUB_REGISTRY}|g; s|\${VERSION}|${VERSION}|g' | \
                     kubectl apply -f - -n products
                     """
                     
                     sh "kubectl apply -f k8s/products-front-service.yaml -n products"
-                    
-                    // Apply ingress
                     sh "kubectl apply -f k8s/ingress.yaml -n products"
                 }
             }
@@ -116,24 +123,13 @@ pipeline {
                 }
             }
         }
-        
-        stage('Configure Local Access') {
-            steps {
-                script {
-                    // Enable Minikube ingress addon if not already enabled
-                    sh "minikube addons enable ingress || true"
-                    
-                    // Get Minikube IP
-                    sh "echo 'Access your application at: http://\$(minikube ip)'"
-                    
-                    // Create a tunnel for the services (optional)
-                    sh "echo 'Alternatively, run: minikube service products-front -n products --url'"
-                }
-            }
-        }
     }
     
     post {
+        always {
+            // Clean up workspace
+            cleanWs()
+        }
         success {
             echo 'Deployment completed successfully!'
         }
